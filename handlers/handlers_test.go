@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"errors"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,18 +10,19 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 )
 
 // Initialize an in-memory database for testing
 func setup() *App {
 	app := &App{}
-	app.Initialize("sqlite3", ":memory:")
+	app.Initialize("file::memory:?cache=shared")
 	return app
 }
 
 // Discard the in-memory database
 func teardown(app *App) {
-	app.DB.Close()
+	app.CloseDB()
 }
 
 func TestCreate(t *testing.T) {
@@ -106,7 +108,7 @@ func TestInvalidCreate(t *testing.T) {
 			}
 			// Make sure no entries are created
 			createdEntry := &urlEntry{}
-			if !app.DB.First(createdEntry).RecordNotFound() {
+			if !errors.Is(app.DB.First(createdEntry).Error, gorm.ErrRecordNotFound) {
 				t.Errorf("Should not have created an entry")
 			}
 		})
@@ -130,7 +132,7 @@ func TestCorruptCreate(t *testing.T) {
 	}
 	// Make sure no entries are created
 	createdEntry := &urlEntry{}
-	if !app.DB.First(createdEntry).RecordNotFound() {
+	if !errors.Is(app.DB.First(createdEntry).Error, gorm.ErrRecordNotFound) {
 		t.Errorf("Should not have created an entry")
 	}
 	teardown(app)
@@ -228,16 +230,6 @@ func TestListAll(t *testing.T) {
 	teardown(app)
 }
 
-func TestFailDBBadDriver(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-	app := &App{}
-	app.Initialize("baddriver", ":memory:")
-}
-
 func TestFailDBBadURI(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -245,5 +237,5 @@ func TestFailDBBadURI(t *testing.T) {
 		}
 	}()
 	app := &App{}
-	app.Initialize("sqlite3", "./garbagepath/data.db")
+	app.Initialize("./garbagepath/data.db")
 }
