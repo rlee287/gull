@@ -1,5 +1,5 @@
 # Use golang alpine flavor as our builder image
-FROM golang:alpine3.18 as builder
+FROM golang:alpine AS builder
 # Add maintainer metadata
 LABEL maintainer="aeolyus"
 # Set our workspace
