@@ -1,14 +1,15 @@
 package handlers
 
 import (
+	"errors"
 	"encoding/json"
 	"github.com/aeolyus/gull/utils"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 	// Use the sqlite db driver
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	"gorm.io/driver/sqlite"
 )
 
 // App represents the appplication itself
@@ -26,9 +27,9 @@ type jsonRes struct {
 }
 
 // Initialize initializes the app, connects to database, and does auto migration
-func (a *App) Initialize(dbDriver string, dbURI string) {
+func (a *App) Initialize(dbURI string) {
 	// Setup database
-	db, err := gorm.Open(dbDriver, dbURI)
+	db, err := gorm.Open(sqlite.Open(dbURI), &gorm.Config{})
 	if err != nil {
 		panic("Failed to connect to database")
 	}
@@ -83,7 +84,7 @@ func (a *App) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 		u.Alias = existingURL.Alias
 	} else {
 		// Verify alias is unique
-		for u.Alias == "" || !a.DB.Where("alias = ?", u.Alias).First(existingURL).RecordNotFound() {
+		for u.Alias == "" || !errors.Is(a.DB.Where("alias = ?", u.Alias).First(existingURL).Error, gorm.ErrRecordNotFound) {
 			u.Alias = utils.RandString(6)
 		}
 		a.DB.Create(u)
@@ -94,4 +95,11 @@ func (a *App) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", shortlink)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(&jsonRes{ShortURL: shortlink})
+}
+
+func (a *App) CloseDB() {
+	db, err := a.DB.DB()
+	if err == nil {
+		db.Close()
+	}
 }

@@ -23,8 +23,8 @@ var (
 func main() {
 	a := &handlers.App{}
 	os.MkdirAll("./data", os.ModePerm)
-	a.Initialize("sqlite3", "./data/data.db")
-	defer a.DB.Close()
+	a.Initialize("./data/data.db")
+	defer a.CloseDB()
 
 	r := mux.NewRouter()
 	if allowCreate {
